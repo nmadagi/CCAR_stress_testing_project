@@ -81,7 +81,12 @@ def generate_historical_data(start_q: str = "2020Q1", end_q: str = "2024Q4") -> 
             real_estate_expense = base_hc * 5_000 * (1 + 0.02 * (year - 2020))
             other_expense = salary_expense * 0.10 * (1 + np.random.normal(0, 0.10))
 
-            total_expense = salary_expense + vendor_expense + real_estate_expense + other_expense
+            total_expense = (
+                salary_expense
+                + vendor_expense
+                + real_estate_expense
+                + other_expense
+            )
 
             # Internal recoveries / allocated revenue
             allocated_revenue = total_expense * (1.05 + np.random.normal(0, 0.05))
@@ -232,6 +237,13 @@ def summarize_scenario(
     cap_threshold: float,
     eff_threshold: float,
 ):
+    """
+    Aggregate projections to firm level for a given scenario and compute:
+    - capital ratio
+    - efficiency ratio
+    - cumulative losses
+    - # of risk appetite breaches (capital OR efficiency)
+    """
     df_scen = df_proj[df_proj["scenario"] == scenario].copy()
 
     agg = (
@@ -249,9 +261,11 @@ def summarize_scenario(
     agg["capital_ratio"] = agg["capital"] / agg["rwa"]
     agg["efficiency_ratio"] = agg["total_expense"] / agg["allocated_revenue"]
 
-    # UPDATED: Count breaches only when QUARTER-END capital ratio is below the threshold
+    # Count a breach when capital ratio is below its minimum
+    # OR efficiency ratio is above its maximum
     capital_breaches = agg["capital_ratio"] < cap_threshold
-    breaches = int(capital_breaches.sum())
+    efficiency_breaches = agg["efficiency_ratio"] > eff_threshold
+    breaches = int((capital_breaches | efficiency_breaches).sum())
 
     cumulative_loss = (-agg["pretax_income"].clip(upper=0)).sum()
 
@@ -277,7 +291,7 @@ def plot_capital_ratio(agg: pd.DataFrame, cap_threshold: float, scenario: str):
         )
     )
 
-    # UPDATED: Add red markers on breach quarters
+    # Red markers on capital-ratio breach quarters
     breach_points = agg[agg["capital_ratio"] < cap_threshold]
     if not breach_points.empty:
         fig.add_trace(
@@ -286,7 +300,7 @@ def plot_capital_ratio(agg: pd.DataFrame, cap_threshold: float, scenario: str):
                 y=breach_points["capital_ratio"],
                 mode="markers",
                 marker=dict(color="red", size=10),
-                name="Breaches",
+                name="Capital Breaches",
             )
         )
 
@@ -662,10 +676,12 @@ def main():
             int(m_sel["breaches"]),
         )
 
-        # UPDATED: brief explanation of how breaches are counted
+        # Explanation of breach definition
         st.caption(
-            "📌 A 'risk appetite breach' is counted when the quarter-end capital ratio "
-            "falls below the minimum capital ratio threshold set in the sidebar."
+            "📌 A 'risk appetite breach' is counted when either the quarter-end "
+            "capital ratio falls below the minimum capital ratio threshold or the "
+            "efficiency ratio (expense / revenue) rises above its maximum threshold "
+            "set in the sidebar."
         )
 
         # Charts
@@ -763,12 +779,6 @@ def main():
                 metrics_by_scenario,
                 cap_threshold=cap_threshold,
                 eff_threshold=eff_threshold,
-            )
-            col_b.download_button(
-                "Download PDF summary",
-                data=pdf_bytes,
-                file_name="stress_testing_summary.pdf",
-                mime="application/pdf",
             )
         else:
             col_b.info("Install 'reportlab' to enable PDF export.")
