@@ -249,10 +249,9 @@ def summarize_scenario(
     agg["capital_ratio"] = agg["capital"] / agg["rwa"]
     agg["efficiency_ratio"] = agg["total_expense"] / agg["allocated_revenue"]
 
-    breaches = (
-        (agg["capital_ratio"] < cap_threshold)
-        | (agg["efficiency_ratio"] > eff_threshold)
-    ).sum()
+    # UPDATED: Count breaches only when QUARTER-END capital ratio is below the threshold
+    capital_breaches = agg["capital_ratio"] < cap_threshold
+    breaches = int(capital_breaches.sum())
 
     cumulative_loss = (-agg["pretax_income"].clip(upper=0)).sum()
 
@@ -267,6 +266,8 @@ def summarize_scenario(
 
 def plot_capital_ratio(agg: pd.DataFrame, cap_threshold: float, scenario: str):
     fig = go.Figure()
+
+    # Main capital ratio path
     fig.add_trace(
         go.Scatter(
             x=agg["quarter"],
@@ -275,6 +276,20 @@ def plot_capital_ratio(agg: pd.DataFrame, cap_threshold: float, scenario: str):
             name="Capital Ratio",
         )
     )
+
+    # UPDATED: Add red markers on breach quarters
+    breach_points = agg[agg["capital_ratio"] < cap_threshold]
+    if not breach_points.empty:
+        fig.add_trace(
+            go.Scatter(
+                x=breach_points["quarter"],
+                y=breach_points["capital_ratio"],
+                mode="markers",
+                marker=dict(color="red", size=10),
+                name="Breaches",
+            )
+        )
+
     fig.add_hline(
         y=cap_threshold,
         line_dash="dash",
@@ -645,6 +660,12 @@ def main():
         col3.metric(
             "# risk appetite breaches",
             int(m_sel["breaches"]),
+        )
+
+        # UPDATED: brief explanation of how breaches are counted
+        st.caption(
+            "📌 A 'risk appetite breach' is counted when the quarter-end capital ratio "
+            "falls below the minimum capital ratio threshold set in the sidebar."
         )
 
         # Charts
