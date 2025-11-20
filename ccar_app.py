@@ -64,7 +64,7 @@ def generate_historical_data(start_q: str = "2020Q1", end_q: str = "2024Q4") -> 
     for p in periods:
         year, q = p.year, p.quarter
 
-        # Simple synthetic macro drivers
+        # Simple synthetic macro drivers (not yet used in projections)
         gdp_growth = 2 + 0.5 * np.sin((p.qyear) / 2) + np.random.normal(0, 0.3)
         unemployment = 4.5 + 0.3 * np.cos((p.qyear) / 3) + np.random.normal(0, 0.2)
         equity_index = 100 + (p.qyear - 2020) * 5 + np.random.normal(0, 3)
@@ -242,7 +242,7 @@ def summarize_scenario(
     - capital ratio
     - efficiency ratio
     - cumulative losses
-    - # of risk appetite breaches (capital OR efficiency)
+    - # of risk appetite breaches (capital AND efficiency split)
     """
     df_scen = df_proj[df_proj["scenario"] == scenario].copy()
 
@@ -261,18 +261,22 @@ def summarize_scenario(
     agg["capital_ratio"] = agg["capital"] / agg["rwa"]
     agg["efficiency_ratio"] = agg["total_expense"] / agg["allocated_revenue"]
 
-    # Count a breach when capital ratio is below its minimum
-    # OR efficiency ratio is above its maximum
-    capital_breaches = agg["capital_ratio"] < cap_threshold
-    efficiency_breaches = agg["efficiency_ratio"] > eff_threshold
-    breaches = int((capital_breaches | efficiency_breaches).sum())
+    # Breach logic
+    capital_breaches_mask = agg["capital_ratio"] < cap_threshold
+    efficiency_breaches_mask = agg["efficiency_ratio"] > eff_threshold
+
+    breaches_capital = int(capital_breaches_mask.sum())
+    breaches_efficiency = int(efficiency_breaches_mask.sum())
+    breaches_total = int((capital_breaches_mask | efficiency_breaches_mask).sum())
 
     cumulative_loss = (-agg["pretax_income"].clip(upper=0)).sum()
 
     metrics = {
         "cumulative_loss": float(cumulative_loss),
         "min_capital_ratio": float(agg["capital_ratio"].min()),
-        "breaches": int(breaches),
+        "breaches": breaches_total,              # total
+        "breaches_capital": breaches_capital,    # capital-only
+        "breaches_efficiency": breaches_efficiency,  # efficiency-only
     }
 
     return agg, metrics
@@ -395,14 +399,20 @@ def build_ppt_report(agg_dict: dict, metrics_dict: dict) -> bytes:
     title.text = "Scenario Metrics Overview"
 
     rows = len(metrics_dict) + 1
-    cols = 4
+    cols = 5
     left = Inches(0.5)
     top = Inches(1.5)
     width = Inches(9)
     height = Inches(2.5)
     table = slide2.shapes.add_table(rows, cols, left, top, width, height).table
 
-    headers = ["Scenario", "Cumulative Loss", "Min Capital Ratio", "# Breaches"]
+    headers = [
+        "Scenario",
+        "Cumulative Loss",
+        "Min Capital Ratio",
+        "Capital Breaches",
+        "Efficiency Breaches",
+    ]
     for j, h in enumerate(headers):
         table.cell(0, j).text = h
 
@@ -410,7 +420,8 @@ def build_ppt_report(agg_dict: dict, metrics_dict: dict) -> bytes:
         table.cell(i, 0).text = scenario
         table.cell(i, 1).text = f"${m['cumulative_loss']:,.0f}"
         table.cell(i, 2).text = f"{m['min_capital_ratio']:.2%}"
-        table.cell(i, 3).text = str(m["breaches"])
+        table.cell(i, 3).text = str(m["breaches_capital"])
+        table.cell(i, 4).text = str(m["breaches_efficiency"])
 
     buf = io.BytesIO()
     prs.save(buf)
@@ -456,7 +467,8 @@ def build_pdf_report(
             f"{scenario}: "
             f"Cumulative loss = ${m['cumulative_loss']:,.0f}, "
             f"Min capital ratio = {m['min_capital_ratio']:.2%}, "
-            f"Breaches = {m['breaches']}"
+            f"Capital breaches = {m['breaches_capital']}, "
+            f"Efficiency breaches = {m['breaches_efficiency']}"
         )
         c.drawString(50, y, line)
         y -= 15
@@ -503,7 +515,7 @@ def make_documentation_tab():
         4. **Risk Appetite Metrics**
            - Capital ratio is compared against a user-defined threshold.
            - Efficiency ratio (expense / revenue) is assessed against a maximum tolerance.
-           - Breaches are counted over the projection horizon.
+           - Capital and efficiency breaches are tracked separately and in total.
 
         ### Controls & Limitations
 
@@ -662,7 +674,7 @@ def main():
         m_sel = metrics_by_scenario[scenario_selected]
 
         # KPI cards
-        col1, col2, col3 = st.columns(3)
+        col1, col2, col3, col4 = st.columns(4)
         col1.metric(
             "Cumulative stressed losses",
             f"${m_sel['cumulative_loss']:,.0f}",
@@ -672,16 +684,20 @@ def main():
             f"{m_sel['min_capital_ratio']:.2%}",
         )
         col3.metric(
-            "# risk appetite breaches",
-            int(m_sel["breaches"]),
+            "Capital ratio breaches",
+            int(m_sel["breaches_capital"]),
+        )
+        col4.metric(
+            "Efficiency ratio breaches",
+            int(m_sel["breaches_efficiency"]),
         )
 
         # Explanation of breach definition
         st.caption(
-            "📌 A 'risk appetite breach' is counted when either the quarter-end "
-            "capital ratio falls below the minimum capital ratio threshold or the "
-            "efficiency ratio (expense / revenue) rises above its maximum threshold "
-            "set in the sidebar."
+            "📌 A 'risk appetite breach' is triggered when either the quarter-end capital "
+            "ratio falls below the minimum capital ratio threshold or the efficiency "
+            "ratio (expense / revenue) rises above its maximum threshold set in the sidebar. "
+            "The KPIs above show capital and efficiency breaches separately."
         )
 
         # Charts
@@ -721,7 +737,8 @@ def main():
                     "Scenario": name,
                     "Cumulative Loss": m["cumulative_loss"],
                     "Min Capital Ratio": m["min_capital_ratio"],
-                    "# Breaches": m["breaches"],
+                    "Capital Breaches": m["breaches_capital"],
+                    "Efficiency Breaches": m["breaches_efficiency"],
                 }
             )
         df_comp = pd.DataFrame(comp_rows)
@@ -746,10 +763,15 @@ def main():
 
         any_breach = False
         for name, m in metrics_by_scenario.items():
-            if m["breaches"] > 0 or m["min_capital_ratio"] < cap_threshold:
+            if (
+                m["breaches_capital"] > 0
+                or m["breaches_efficiency"] > 0
+                or m["min_capital_ratio"] < cap_threshold
+            ):
                 any_breach = True
                 st.error(
-                    f"{name}: {m['breaches']} breach(es), "
+                    f"{name}: {m['breaches_capital']} capital breach(es), "
+                    f"{m['breaches_efficiency']} efficiency breach(es); "
                     f"minimum capital ratio {m['min_capital_ratio']:.2%} "
                     f"(threshold {cap_threshold:.2%})."
                 )
@@ -779,6 +801,12 @@ def main():
                 metrics_by_scenario,
                 cap_threshold=cap_threshold,
                 eff_threshold=eff_threshold,
+            )
+            col_b.download_button(
+                "Download PDF summary",
+                data=pdf_bytes,
+                file_name="stress_testing_summary.pdf",
+                mime="application/pdf",
             )
         else:
             col_b.info("Install 'reportlab' to enable PDF export.")
