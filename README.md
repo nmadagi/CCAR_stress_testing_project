@@ -1,6 +1,3 @@
-# CCAR_stress_testing_project
-Interactive financial stress testing and scenario analysis dashboard built in Python/Streamlit. Includes synthetic data generation, multi-scenario forecasting, capital &amp; efficiency metrics, and automated PowerPoint/PDF exports for management reporting.
-
 # Financial Stress Testing & Scenario Analysis Dashboard
 
 This project is a synthetic **multi-scenario stress testing and forecasting dashboard** built in Python and Streamlit.
@@ -55,3 +52,13 @@ It demonstrates how to:
    ```bash
    git clone https://github.com/<your-username>/ccar-stress-testing.git
    cd ccar-stress-testing
+
+---
+
+## 👤 Author
+
+**Nitin Madagi** | [GitHub](https://github.com/nmadagi) | [Portfolio](https://nmadagi.github.io/portfolio)
+
+## 📄 License
+
+This project is licensed under the [MIT License](LICENSE).
