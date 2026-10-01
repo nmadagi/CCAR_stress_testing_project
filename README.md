@@ -10,7 +10,7 @@ It demonstrates how to:
 
 ---
 
-## 🔍 Key Features
+## Key Features
 
 - **Synthetic financial data generator**
   - Quarterly headcount, compensation and non-comp expenses
@@ -19,7 +19,7 @@ It demonstrates how to:
 
 - **Scenario engine**
   - User-defined annual shocks to revenue and expenses
-  - Base / Moderate / Severe stress, each projected over 4–12 quarters
+  - Base / Moderate / Severe stress, each projected over 4-12 quarters
   - Capital evolution with losses and a configurable capital floor
 
 - **Risk Appetite & KPIs**
@@ -34,7 +34,7 @@ It demonstrates how to:
 
 ---
 
-## 🧱 Tech Stack
+## Tech Stack
 
 - Python
 - Streamlit
@@ -45,20 +45,28 @@ It demonstrates how to:
 
 ---
 
-## ▶️ Running Locally
+## Running Locally
 
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/<your-username>/ccar-stress-testing.git
-   cd ccar-stress-testing
+   git clone https://github.com/nmadagi/CCAR_stress_testing_project.git
+   cd CCAR_stress_testing_project
+   ```
+
+2. Install the requirements and start the app:
+
+   ```bash
+   pip install -r requirements.txt
+   streamlit run ccar_app.py
+   ```
 
 ---
 
-## 👤 Author
+## Author
 
 **Nitin Madagi** | [GitHub](https://github.com/nmadagi) | [Portfolio](https://nmadagi.github.io/portfolio)
 
-## 📄 License
+## License
 
 This project is licensed under the [MIT License](LICENSE).

@@ -315,7 +315,7 @@ def plot_capital_ratio(agg: pd.DataFrame, cap_threshold: float, scenario: str):
         annotation_position="top left",
     )
     fig.update_layout(
-        title=f"Capital Ratio Path – {scenario}",
+        title=f"Capital Ratio Path - {scenario}",
         xaxis_title="Quarter",
         yaxis_title="Capital Ratio",
     )
@@ -340,7 +340,7 @@ def plot_capital_ratio_multi(agg_dict: dict, cap_threshold: float):
         annotation_position="top left",
     )
     fig.update_layout(
-        title="Capital Ratio Paths – Scenario Comparison",
+        title="Capital Ratio Paths - Scenario Comparison",
         xaxis_title="Quarter",
         yaxis_title="Capital Ratio",
     )
@@ -368,7 +368,7 @@ def plot_pretax_income_by_lob(df_proj: pd.DataFrame, scenario: str):
 
     fig.update_layout(
         barmode="relative",
-        title=f"Pretax Income by Function – {scenario}",
+        title=f"Pretax Income by Function - {scenario}",
         xaxis_title="Quarter",
         yaxis_title="Pretax Income",
     )
@@ -694,7 +694,7 @@ def main():
 
         # Explanation of breach definition
         st.caption(
-            "📌 A 'risk appetite breach' is triggered when either the quarter-end capital "
+            "A 'risk appetite breach' is triggered when either the quarter-end capital "
             "ratio falls below the minimum capital ratio threshold or the efficiency "
             "ratio (expense / revenue) rises above its maximum threshold set in the sidebar. "
             "The KPIs above show capital and efficiency breaches separately."
@@ -712,7 +712,7 @@ def main():
         )
 
         # Detailed table
-        st.subheader("Projected summary – firm level")
+        st.subheader("Projected summary - firm level")
         st.dataframe(
             agg_sel.style.format(
                 {
@@ -728,7 +728,7 @@ def main():
         )
 
         st.markdown("---")
-        st.subheader("Scenario comparison – key metrics")
+        st.subheader("Scenario comparison - key metrics")
 
         comp_rows = []
         for name, m in metrics_by_scenario.items():
